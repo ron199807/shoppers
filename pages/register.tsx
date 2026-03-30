@@ -43,9 +43,16 @@ export default function Register() {
       );
 
       if (error) {
-        setError(error.message);
+        // Handle rate limit error specifically
+        if (error.message.includes('rate limit')) {
+          setError('Too many signup attempts. Please wait a few minutes before trying again.');
+        } else if (error.message.includes('User already registered')) {
+          setError('An account with this email already exists. Please sign in instead.');
+        } else {
+          setError(error.message);
+        }
       } else {
-        // Show success message and redirect to login
+        // Show success message
         alert('Registration successful! Please sign in with your credentials.');
         router.push('/login');
       }
@@ -76,6 +83,16 @@ export default function Register() {
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
               {error}
+              {error.includes('rate limit') && (
+                <div className="mt-2 text-sm">
+                  <p>Tips to avoid rate limits:</p>
+                  <ul className="list-disc list-inside ml-2">
+                    <li>Wait 5-10 minutes before trying again</li>
+                    <li>Use a different email address</li>
+                    <li>Sign in if you already have an account</li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
@@ -161,6 +178,7 @@ export default function Register() {
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="••••••••"
               />
+              <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters</p>
             </div>
 
             <div>
@@ -191,6 +209,22 @@ export default function Register() {
             </button>
           </div>
         </form>
+
+        {/* Demo credentials */}
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-md p-4">
+          <p className="text-sm text-blue-800 font-medium mb-2">Having trouble signing up?</p>
+          <p className="text-xs text-blue-600">
+            If you're getting rate limit errors, wait a few minutes and try again with a different email.
+            You can also sign in with these demo accounts:
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            Client: client@example.com / password123<br />
+            Shopper: shopper@example.com / password123
+          </p>
+          <p className="text-xs text-blue-500 mt-2">
+            Note: These demo accounts may not exist. Create your own account or use the test credentials above.
+          </p>
+        </div>
       </div>
     </div>
   );

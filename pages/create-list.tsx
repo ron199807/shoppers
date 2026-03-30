@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import ProtectedRoute from '@/components/auth/common/ProtectedRoute';
+import ProtectedRoute from '@/components/common/ProtectedRoute';
 
 export default function CreateList() {
   const router = useRouter();

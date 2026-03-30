@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import ProtectedRoute from '@/components/auth/common/ProtectedRoute';
+import ProtectedRoute from '@/components/common/ProtectedRoute';
 
 export default function Profile() {
   const { user, profile, loading } = useAuth();

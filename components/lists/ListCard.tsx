@@ -8,6 +8,7 @@ interface ListCardProps {
 
 export default function ListCard({ list, userType }: ListCardProps) {
   const totalItems = list.items?.length || 0;
+  
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">

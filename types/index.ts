@@ -25,6 +25,8 @@ export interface ShoppingList {
   selected_bid?: Bid;
   items?: ListItem[];
   created_at: string;
+  updated_at: string;
+  bids?: Bid[];
 }
 
 export interface ListItem {
@@ -34,6 +36,9 @@ export interface ListItem {
   quantity: number;
   unit?: string;
   notes?: string;
+  created_at: string;
+  updated_at?: string;
+
 }
 
 export interface Bid {
@@ -46,6 +51,7 @@ export interface Bid {
   estimated_delivery_time?: string;
   status: 'pending' | 'accepted' | 'rejected';
   created_at: string;
+  Rating?: Rating;
 }
 
 export interface Conversation {
@@ -93,25 +99,3 @@ export interface Rating {
   review?: string;
   created_at: string;
 }
-
-
-
-// export interface Category {
-//   id: string;
-//   name: string;
-//   created_at: string;
-// }
-
-// export interface ShoppingItem {
-//   id: string;
-//   name: string;
-//   quantity: number;
-//   unit: string | null;
-//   category_id: string | null;
-//   completed: boolean;
-//   created_at: string;
-//   updated_at: string;
-//   category?: Category;
-// }
-
-// export type ShoppingItemInput = Omit<ShoppingItem, 'id' | 'created_at' | 'updated_at'>;

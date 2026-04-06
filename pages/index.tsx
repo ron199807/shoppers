@@ -13,6 +13,220 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+// Function to refresh all data
+const refreshData = async () => {
+  if (!user) return;
+  console.log('=== REFRESH DATA CALLED ===');
+  
+  try {
+    console.log('Refreshing data...');
+    // Clear existing data before fetching new data
+    setOpenLists([]);
+    setMyLists([]);
+    setMyActiveBids([]);
+
+    // ========== 1. Fetch Open Lists (for shoppers) ==========
+    // First, get all open shopping lists
+    const { data: openListsData, error: openListsError } = await supabase
+      .from('shopping_lists')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+    
+    if (openListsError) throw openListsError;
+    
+    if (openListsData && openListsData.length > 0) {
+      // Get client profiles for these lists
+      const clientIds = [...new Set(openListsData.map(l => l.client_id))];
+      const { data: clients, error: clientsError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', clientIds);
+      
+      if (clientsError) throw clientsError;
+      
+      // Get items for these lists
+      const listIds = openListsData.map(l => l.id);
+      const { data: items, error: itemsError } = await supabase
+        .from('list_items')
+        .select('*')
+        .in('list_id', listIds);
+      
+      if (itemsError) throw itemsError;
+      
+      // Get bids for these lists
+      const { data: bids, error: bidsError } = await supabase
+        .from('bids')
+        .select('*')
+        .in('list_id', listIds);
+      
+      if (bidsError) throw bidsError;
+      
+      // Get shopper profiles for bids
+      let bidsWithShoppers = bids || [];
+      if (bids && bids.length > 0) {
+        const shopperIds = [...new Set(bids.map(b => b.shopper_id))];
+        const { data: shoppers, error: shoppersError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', shopperIds);
+        
+        if (!shoppersError && shoppers) {
+          bidsWithShoppers = bids.map(bid => ({
+            ...bid,
+            shopper: shoppers.find(s => s.id === bid.shopper_id)
+          }));
+        }
+      }
+      
+      // Combine all data
+      const completeOpenLists = openListsData.map(list => ({
+        ...list,
+        client: clients?.find(c => c.id === list.client_id),
+        items: items?.filter(i => i.list_id === list.id) || [],
+        bids: bidsWithShoppers?.filter(b => b.list_id === list.id) || [],
+        selected_bid: bidsWithShoppers?.find(b => b.id === list.selected_bid_id) || null,
+      }));
+      
+      setOpenLists(completeOpenLists);
+    } else {
+      setOpenLists([]);
+    }
+
+    // ========== 2. Fetch Client's Own Lists ==========
+    if (profile?.user_type === 'client') {
+      // Get client's lists
+      const { data: myListsData, error: myListsError } = await supabase
+        .from('shopping_lists')
+        .select('*')
+        .eq('client_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (myListsError) throw myListsError;
+      
+      if (myListsData && myListsData.length > 0) {
+        // Get items for these lists
+        const listIds = myListsData.map(l => l.id);
+        const { data: items, error: itemsError } = await supabase
+          .from('list_items')
+          .select('*')
+          .in('list_id', listIds);
+        
+        if (itemsError) throw itemsError;
+        
+        // Get bids for these lists
+        const { data: bids, error: bidsError } = await supabase
+          .from('bids')
+          .select('*')
+          .in('list_id', listIds);
+        
+        if (bidsError) throw bidsError;
+        
+        // Get shopper profiles for bids
+        let bidsWithShoppers = bids || [];
+        if (bids && bids.length > 0) {
+          const shopperIds = [...new Set(bids.map(b => b.shopper_id))];
+          const { data: shoppers, error: shoppersError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', shopperIds);
+          
+          if (!shoppersError && shoppers) {
+            bidsWithShoppers = bids.map(bid => ({
+              ...bid,
+              shopper: shoppers.find(s => s.id === bid.shopper_id)
+            }));
+          }
+        }
+        
+        // Get client profile
+        const { data: clientProfile, error: clientError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (clientError) throw clientError;
+        
+        // Combine all data
+        const completeMyLists = myListsData.map(list => ({
+          ...list,
+          client: clientProfile,
+          items: items?.filter(i => i.list_id === list.id) || [],
+          bids: bidsWithShoppers?.filter(b => b.list_id === list.id) || [],
+          selected_bid: bidsWithShoppers?.find(b => b.id === list.selected_bid_id) || null,
+        }));
+        
+        setMyLists(completeMyLists);
+      } else {
+        setMyLists([]);
+      }
+    }
+
+    // ========== 3. Fetch Shopper's Bids ==========
+    if (profile?.user_type === 'shopper') {
+      // Get shopper's bids
+      const { data: bidsData, error: bidsError } = await supabase
+        .from('bids')
+        .select('*')
+        .eq('shopper_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (bidsError) throw bidsError;
+      
+      if (bidsData && bidsData.length > 0) {
+        // Get list IDs from bids
+        const listIds = [...new Set(bidsData.map(b => b.list_id))];
+        
+        // Get shopping lists
+        const { data: lists, error: listsError } = await supabase
+          .from('shopping_lists')
+          .select('*')
+          .in('id', listIds);
+        
+        if (listsError) throw listsError;
+        
+        // Get client profiles
+        const clientIds = [...new Set(lists?.map(l => l.client_id) || [])];
+        const { data: clients, error: clientsError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', clientIds);
+        
+        if (clientsError) throw clientsError;
+        
+        // Get items for lists
+        const { data: items, error: itemsError } = await supabase
+          .from('list_items')
+          .select('*')
+          .in('list_id', listIds);
+        
+        if (itemsError) throw itemsError;
+        
+        // Combine data
+        const completeBids = bidsData.map(bid => {
+          const list = lists?.find(l => l.id === bid.list_id);
+          return {
+            ...bid,
+            list: {
+              ...list,
+              client: clients?.find(c => c.id === list?.client_id),
+              items: items?.filter(i => i.list_id === list?.id) || [],
+            }
+          };
+        });
+        
+        setMyActiveBids(completeBids);
+      } else {
+        setMyActiveBids([]);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching data:', err);
+    setError('Failed to load dashboard data');
+  }
+};
+
   useEffect(() => {
     if (!user) {
       setLoading(false);
@@ -22,64 +236,8 @@ export default function Dashboard() {
     const fetchData = async () => {
       setLoading(true);
       setError('');
-      
-      try {
-        // Fetch open shopping lists
-        const { data: openData, error: openError } = await supabase
-          .from('shopping_lists')
-          .select(`
-            *,
-            client:profiles(*),
-            items:list_items(*),
-            bids:bids(*, shopper:profiles(*))
-          `)
-          .eq('status', 'open')
-          .order('created_at', { ascending: false });
-        
-        if (openError) throw openError;
-        if (openData) setOpenLists(openData);
-
-        // Fetch client's own lists
-        if (profile?.user_type === 'client') {
-          const { data: myListsData, error: myListsError } = await supabase
-            .from('shopping_lists')
-            .select(`
-              *,
-              items:list_items(*),
-              selected_bid:bids(*, shopper:profiles(*)),
-              bids:bids(*, shopper:profiles(*))
-            `)
-            .eq('client_id', user.id)
-            .order('created_at', { ascending: false });
-          
-          if (myListsError) throw myListsError;
-          if (myListsData) setMyLists(myListsData);
-        }
-
-        // Fetch shopper's bids
-        if (profile?.user_type === 'shopper') {
-          const { data: bidsData, error: bidsError } = await supabase
-            .from('bids')
-            .select(`
-              *,
-              list:shopping_lists(
-                *,
-                client:profiles(*),
-                items:list_items(*)
-              )
-            `)
-            .eq('shopper_id', user.id)
-            .order('created_at', { ascending: false });
-          
-          if (bidsError) throw bidsError;
-          if (bidsData) setMyActiveBids(bidsData);
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
+      await refreshData();
+      setLoading(false);
     };
 
     fetchData();
@@ -97,10 +255,10 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-4xl font-bold mb-4">Welcome to Shopper</h1>
-          <p className="text-xl mb-8">Post shopping tasks or earn money by shopping for others</p>
+          <h1 className="text-gray-800 text-4xl font-bold mb-4">Welcome to Shopper</h1>
+          <p className="text-gray-600 text-xl mb-8">Post shopping tasks or earn money by shopping for others</p>
           <Link href="/login">
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+            <button className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
               Get Started
             </button>
           </Link>
@@ -114,7 +272,7 @@ export default function Dashboard() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Welcome Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {profile?.full_name || user.email}!</h1>
+          <h1 className="text-gray-800 text-2xl font-bold mb-2">Welcome back, {profile?.full_name || user.email}!</h1>
           <p className="text-gray-600">
             {profile?.user_type === 'client' 
               ? 'Post shopping tasks and find reliable shoppers' 
@@ -145,7 +303,7 @@ export default function Dashboard() {
             {openLists.length > 0 ? (
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">Available Shopping Tasks</h2>
+                  <h2 className="text-gray-800 text-2xl font-bold">Available Shopping Tasks</h2>
                   {openLists.length > 6 && (
                     <Link href="/available-lists" className="text-blue-600 hover:underline">
                       View all {openLists.length} tasks →
@@ -154,7 +312,13 @@ export default function Dashboard() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {openLists.slice(0, 6).map(list => (
-                    <ListCard key={list.id} list={list} userType="shopper" />
+                    <ListCard 
+                      key={list.id} 
+                      list={list} 
+                      userType="shopper"
+                      currentUserId={user?.id}
+                      onDelete={refreshData}
+                    />
                   ))}
                 </div>
               </div>
@@ -173,14 +337,20 @@ export default function Dashboard() {
             {myLists.length > 0 ? (
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">My Shopping Lists</h2>
+                  <h2 className="text-gray-800 text-2xl font-bold">My Shopping Lists</h2>
                   <Link href="/my-lists" className="text-blue-600 hover:underline">
                     View all →
                   </Link>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {myLists.slice(0, 6).map(list => (
-                    <ListCard key={list.id} list={list} userType="client" />
+                    <ListCard 
+                      key={list.id} 
+                      list={list} 
+                      userType="client"
+                      currentUserId={user?.id}
+                      onDelete={refreshData}
+                    />
                   ))}
                 </div>
               </div>
@@ -201,7 +371,7 @@ export default function Dashboard() {
         {profile?.user_type === 'shopper' && myActiveBids.length > 0 && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">My Active Bids</h2>
+              <h2 className="text-gray-800 text-2xl font-bold">My Active Bids</h2>
               <Link href="/my-bids" className="text-blue-600 hover:underline">
                 View all bids →
               </Link>
@@ -210,7 +380,7 @@ export default function Dashboard() {
               {myActiveBids.slice(0, 6).map(bid => (
                 <div key={bid.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg line-clamp-1">{bid.list.title}</h3>
+                    <h3 className="text-gray-800 font-bold text-lg line-clamp-1">{bid.list.title}</h3>
                     <span className={`px-2 py-1 text-xs rounded font-medium ${
                       bid.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       bid.status === 'accepted' ? 'bg-green-100 text-green-800' :
@@ -224,8 +394,32 @@ export default function Dashboard() {
                   </p>
                   <p className="text-green-600 font-bold text-lg mb-2">${bid.amount.toFixed(2)}</p>
                   <p className="text-sm text-gray-500 mb-3">
-                    Posted by: {bid.list.client?.full_name}
+                    Posted by: {bid.list.client?.full_name || 'Anonymous'}
                   </p>
+                  
+                  {/* Withdraw button for pending bids */}
+                  {bid.status === 'pending' && (
+                    <button
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to withdraw this bid?')) {
+                          const { error } = await supabase
+                            .from('bids')
+                            .delete()
+                            .eq('id', bid.id);
+                          
+                          if (!error) {
+                            refreshData();
+                          } else {
+                            alert('Failed to withdraw bid');
+                          }
+                        }
+                      }}
+                      className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition-colors mb-2"
+                    >
+                      Withdraw Bid
+                    </button>
+                  )}
+                  
                   <Link href={`/list/${bid.list.id}`}>
                     <button className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors">
                       View Details

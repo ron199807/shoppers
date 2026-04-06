@@ -1,135 +1,80 @@
 import { supabase } from '../supabaseClient';
-import { ShoppingList, ListItem } from '../../types';
+import { ShoppingList } from '@/types';
 
-export const getShoppingLists = async (filters?: {
-  status?: string;
-  client_id?: string;
-}) => {
-  let query = supabase
-    .from('shopping_lists')
-    .select(`
-      *,
-      client:profiles(*),
-      items:list_items(*),
-      selected_bid:bids(*, shopper:profiles(*))
-    `)
-    .order('created_at', { ascending: false });
+export const getClientLists = async (clientId: string): Promise<ShoppingList[]> => {
+  if (!clientId) return [];
 
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters?.client_id) {
-    query = query.eq('client_id', filters.client_id);
-  }
+  try {
+    // First, get all lists for this client
+    const { data: listsData, error: listsError } = await supabase
+      .from('shopping_lists')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data as ShoppingList[];
-};
+    if (listsError) throw listsError;
 
-export const getShoppingListById = async (id: string) => {
-  const { data, error } = await supabase
-    .from('shopping_lists')
-    .select(`
-      *,
-      client:profiles(*),
-      items:list_items(*),
-      bids:bids(*, shopper:profiles(*)),
-      selected_bid:bids(*, shopper:profiles(*))
-    `)
-    .eq('id', id)
-    .single();
+    if (!listsData || listsData.length === 0) {
+      return [];
+    }
 
-  if (error) throw error;
-  return data as ShoppingList;
-};
+    // Get list IDs
+    const listIds = listsData.map(l => l.id);
 
-export const createShoppingList = async (
-  list: Omit<ShoppingList, 'id' | 'created_at' | 'updated_at' | 'client' | 'items' | 'selected_bid'>,
-  items: Omit<ListItem, 'id' | 'list_id' | 'created_at'>[]
-) => {
-  // Create the shopping list
-  const { data: listData, error: listError } = await supabase
-    .from('shopping_lists')
-    .insert([list])
-    .select()
-    .single();
-
-  if (listError) throw listError;
-
-  // Create the items
-  if (items.length > 0) {
-    const { error: itemsError } = await supabase
+    // Get items for these lists
+    const { data: itemsData, error: itemsError } = await supabase
       .from('list_items')
-      .insert(
-        items.map(item => ({
-          ...item,
-          list_id: listData.id,
-        }))
-      );
+      .select('*')
+      .in('list_id', listIds);
 
     if (itemsError) throw itemsError;
+
+    // Get bids for these lists
+    const { data: bidsData, error: bidsError } = await supabase
+      .from('bids')
+      .select('*')
+      .in('list_id', listIds);
+
+    if (bidsError) throw bidsError;
+
+    // Get shopper profiles for bids
+    let bidsWithShoppers = bidsData || [];
+    if (bidsData && bidsData.length > 0) {
+      const shopperIds = [...new Set(bidsData.map(b => b.shopper_id))];
+      const { data: shoppersData, error: shoppersError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', shopperIds);
+
+      if (!shoppersError && shoppersData) {
+        bidsWithShoppers = bidsData.map(bid => ({
+          ...bid,
+          shopper: shoppersData.find(s => s.id === bid.shopper_id)
+        }));
+      }
+    }
+
+    // Get client profile
+    const { data: clientProfile, error: clientError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (clientError) throw clientError;
+
+    // Combine all data
+    const completeLists: ShoppingList[] = listsData.map(list => ({
+      ...list,
+      client: clientProfile,
+      items: itemsData?.filter(i => i.list_id === list.id) || [],
+      bids: bidsWithShoppers?.filter(b => b.list_id === list.id) || [],
+      selected_bid: bidsWithShoppers?.find(b => b.id === list.selected_bid_id) || null,
+    }));
+
+    return completeLists;
+  } catch (error) {
+    console.error('Error in getClientLists:', error);
+    throw error;
   }
-
-  return getShoppingListById(listData.id);
-};
-
-export const updateShoppingList = async (
-  id: string,
-  updates: Partial<ShoppingList>
-) => {
-  const { data, error } = await supabase
-    .from('shopping_lists')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as ShoppingList;
-};
-
-export const deleteShoppingList = async (id: string) => {
-  const { error } = await supabase
-    .from('shopping_lists')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-};
-
-export const addListItems = async (listId: string, items: Omit<ListItem, 'id' | 'list_id' | 'created_at'>[]) => {
-  const { data, error } = await supabase
-    .from('list_items')
-    .insert(
-      items.map(item => ({
-        ...item,
-        list_id: listId,
-      }))
-    )
-    .select();
-
-  if (error) throw error;
-  return data;
-};
-
-export const updateListItem = async (id: string, updates: Partial<ListItem>) => {
-  const { data, error } = await supabase
-    .from('list_items')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-};
-
-export const deleteListItem = async (id: string) => {
-  const { error } = await supabase
-    .from('list_items')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
 };

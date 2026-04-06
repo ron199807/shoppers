@@ -56,10 +56,10 @@ export default function BidForm({ listId, onBidPlaced, onCancel }: BidFormProps)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h3 className="text-lg font-semibold mb-4">Place Your Bid</h3>
+      <h3 className="text-gray-700 text-lg font-semibold mb-4">Place Your Bid</h3>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-500 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
       )}
@@ -75,10 +75,10 @@ export default function BidForm({ listId, onBidPlaced, onCancel }: BidFormProps)
           required
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-gray-700 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Enter your bid amount"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-gray-900 text-xs text-gray-500 mt-1">
           This is how much you'll charge for shopping and delivering the items
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function BidForm({ listId, onBidPlaced, onCancel }: BidFormProps)
           type="datetime-local"
           value={estimatedDeliveryTime}
           onChange={(e) => setEstimatedDeliveryTime(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-gray-700 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -103,7 +103,7 @@ export default function BidForm({ listId, onBidPlaced, onCancel }: BidFormProps)
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-gray-700 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Introduce yourself and explain why you're a good fit for this shopping task..."
         />
       </div>

@@ -26,7 +26,7 @@ export default function BidList({ bids, onAcceptBid }: BidListProps) {
         <div key={bid.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-3">
             <div>
-              <h3 className="font-semibold text-lg">{bid.shopper?.full_name || 'Anonymous Shopper'}</h3>
+              <h3 className="text-gray-600 font-semibold text-lg">{bid.shopper?.full_name || 'Anonymous Shopper'}</h3>
               <p className="text-sm text-gray-500">
                 Bid placed on {new Date(bid.created_at).toLocaleDateString()}
               </p>
